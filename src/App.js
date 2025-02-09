@@ -3,7 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import './App.css';
 
 import Home from './Home';
-import FCFS from './FCFS';
+import FCFS from './FCFS.js';
+
 
 function App() {
   return (
@@ -15,14 +16,13 @@ function App() {
                 <Link to="/">Inicio</Link>
               </li>
               <li>
-                <Link to="/src/FCFS.js">FCFS</Link>
+                <Link to="/fcfs">FCFS</Link>
               </li>
             </ul>
           </nav>
-
           <Routes>
             <Route path="/" element={<div className="container"><Home /></div>} />
-            <Route path="./FCFS.js" element={<div className="container"><FCFS /></div>} />
+            <Route path="/fcfs" element={<div className="container"><FCFS /></div>} />
           </Routes>
         </div>
       </Router>
