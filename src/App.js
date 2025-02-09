@@ -1,13 +1,26 @@
-
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import './App.css';
-import FCFS from './fcfs.js';
+
+import Home from './Home';
 
 function App() {
   return (
-    <div className="App">
-      <h1>Simulación del Algoritmo FCFS</h1>
-      <FCFS />
-    </div>
+      <Router>
+        <div>
+          <nav>
+            <ul>
+              <li>
+                <Link to="/">Inicio</Link>
+              </li>
+            </ul>
+          </nav>
+
+          <Routes>
+            <Route path="/" element={<div className="container"><Home /></div>} />
+          </Routes>
+        </div>
+      </Router>
   );
 }
 
