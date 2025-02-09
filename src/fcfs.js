@@ -1,188 +1,159 @@
 import React, { useState } from "react";
+import "./FCFS.css";
 
 const FCFS = () => {
-  const [processes, setProcesses] = useState([]);
-  const [newProcess, setNewProcess] = useState({
-    id: "",
-    arrival: 0,
-    execution: 0,
-    blockStart: 0,
-    blockDuration: 0,
-  });
-
-  const [chartData, setChartData] = useState([]);
-
-  const addProcess = () => {
-    setProcesses([...processes, { ...newProcess, id: processes.length + 1 }]);
-    setNewProcess({
-      id: "",
-      arrival: 0,
-      execution: 0,
-      blockStart: 0,
-      blockDuration: 0,
+    const [processes, setProcesses] = useState([]);
+    const [form, setForm] = useState({
+        name: "",
+        arrival: "",
+        execution: "",
+        blockStart: "",
+        blockDuration: "",
     });
-  };
 
-  const simulateFCFS = () => {
-    let time = 0;
-    const results = [];
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setForm({ ...form, [name]: value });
+    };
 
-    processes
-      .sort((a, b) => a.arrival - b.arrival)
-      .forEach((process) => {
-        const start = Math.max(time, process.arrival);
-        const blockEnd = process.blockStart + process.blockDuration;
-        const end = start + process.execution;
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        const newProcess = {
+            name: form.name,
+            arrival: parseInt(form.arrival),
+            execution: parseInt(form.execution),
+            blockStart: parseInt(form.blockStart),
+            blockDuration: parseInt(form.blockDuration),
+        };
+        setProcesses((prev) => [...prev, newProcess].sort((a, b) => a.arrival - b.arrival));
+        setForm({ name: "", arrival: "", execution: "", blockStart: "", blockDuration: "" });
+    };
 
-        results.push({
-          process: process.id,
-          start,
-          blockStart: process.blockStart,
-          blockEnd,
-          end,
+    const calculateMetrics = () => {
+        let currentTime = 0;
+        return processes.map((process) => {
+            const startTime = Math.max(currentTime, process.arrival);
+            const blockEnd = process.blockStart + process.blockDuration;
+            const endTime = startTime + process.execution;
+            const turnaroundTime = endTime - process.arrival;
+            const lostTime = turnaroundTime - process.execution;
+            const penalty = (turnaroundTime / process.execution).toFixed(2);
+            const responseTime = startTime - process.arrival;
+            currentTime = endTime;
+
+            return { ...process, startTime, endTime, turnaroundTime, lostTime, penalty, responseTime };
         });
+    };
 
-        time = end;
-      });
+    const renderChart = (process) => {
+        const { arrival, startTime, blockStart, blockDuration, endTime } = process;
+        const bar = [];
 
-    setChartData(results);
-  };
+        for (let i = arrival; i < endTime; i++) {
+            const className =
+                i < startTime
+                    ? "waiting"
+                    : i >= blockStart && i < blockStart + blockDuration
+                    ? "blocked"
+                    : "execution";
+            bar.push(<div key={i} className={`bar-segment ${className}`} style={{ width: "20px" }}></div>);
+        }
+        return bar;
+    };
 
-  return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Simulación FCFS</h1>
+    const metrics = calculateMetrics();
 
-      {/* Formulario para agregar procesos */}
-      <div className="grid grid-cols-5 gap-2 mb-4">
-        <input
-          type="number"
-          placeholder="Llegada"
-          className="border p-2"
-          value={newProcess.arrival}
-          onChange={(e) =>
-            setNewProcess({ ...newProcess, arrival: parseInt(e.target.value) })
-          }
-        />
-        <input
-          type="number"
-          placeholder="Ejecución"
-          className="border p-2"
-          value={newProcess.execution}
-          onChange={(e) =>
-            setNewProcess({
-              ...newProcess,
-              execution: parseInt(e.target.value),
-            })
-          }
-        />
-        <input
-          type="number"
-          placeholder="Inicio Bloqueo"
-          className="border p-2"
-          value={newProcess.blockStart}
-          onChange={(e) =>
-            setNewProcess({
-              ...newProcess,
-              blockStart: parseInt(e.target.value),
-            })
-          }
-        />
-        <input
-          type="number"
-          placeholder="Duración Bloqueo"
-          className="border p-2"
-          value={newProcess.blockDuration}
-          onChange={(e) =>
-            setNewProcess({
-              ...newProcess,
-              blockDuration: parseInt(e.target.value),
-            })
-          }
-        />
-        <button
-          onClick={addProcess}
-          className="bg-blue-500 text-white px-4 py-2 rounded"
-        >
-          Agregar
-        </button>
-      </div>
-
-      {/* Botón para simular */}
-      <button
-        onClick={simulateFCFS}
-        className="bg-green-500 text-white px-4 py-2 rounded mb-4"
-      >
-        Simular FCFS
-      </button>
-
-      {/* Tabla de procesos */}
-      {processes.length > 0 && (
-        <table className="table-auto w-full mb-4 border">
-          <thead>
-            <tr>
-              <th className="border px-2">ID</th>
-              <th className="border px-2">Llegada</th>
-              <th className="border px-2">Ejecución</th>
-              <th className="border px-2">Inicio Bloqueo</th>
-              <th className="border px-2">Duración Bloqueo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {processes.map((p, index) => (
-              <tr key={index}>
-                <td className="border px-2">{p.id}</td>
-                <td className="border px-2">{p.arrival}</td>
-                <td className="border px-2">{p.execution}</td>
-                <td className="border px-2">{p.blockStart}</td>
-                <td className="border px-2">{p.blockDuration}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {/* Gráfico */}
-      <div className="relative w-full h-64 border">
-        {chartData.map((p, index) => (
-          <div
-            key={index}
-            style={{
-              display: "flex",
-              position: "absolute",
-              left: `${p.start * 10}px`,
-              top: `${index * 30}px`,
-              height: "20px",
-            }}
-          >
-            {/* Ejecución */}
-            <div
-              className="bg-green-500"
-              style={{
-                width: `${(p.blockStart - p.start) * 10}px`,
-                height: "20px",
-              }}
-            ></div>
-            {/* Bloqueo */}
-            <div
-              className="bg-red-500"
-              style={{
-                width: `${(p.blockEnd - p.blockStart) * 10}px`,
-                height: "20px",
-              }}
-            ></div>
-            {/* Post bloqueo */}
-            <div
-              className="bg-gray-500"
-              style={{
-                width: `${(p.end - p.blockEnd) * 10}px`,
-                height: "20px",
-              }}
-            ></div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+    return (
+        <div>
+            <h1>Simulación del Algoritmo FCFS</h1>
+            <form onSubmit={handleSubmit}>
+                <h2>Ingrese los datos del proceso</h2>
+                <label>Nombre del Proceso:</label>
+                <input
+                    type="text"
+                    name="name"
+                    value={form.name}
+                    onChange={handleInputChange}
+                    required
+                />
+                <label>Instante de Llegada:</label>
+                <input
+                    type="number"
+                    name="arrival"
+                    value={form.arrival}
+                    onChange={handleInputChange}
+                    required
+                />
+                <label>Tiempo de Ejecución:</label>
+                <input
+                    type="number"
+                    name="execution"
+                    value={form.execution}
+                    onChange={handleInputChange}
+                    required
+                />
+                <label>Inicio de Bloqueo:</label>
+                <input
+                    type="number"
+                    name="blockStart"
+                    value={form.blockStart}
+                    onChange={handleInputChange}
+                    required
+                />
+                <label>Duración del Bloqueo:</label>
+                <input
+                    type="number"
+                    name="blockDuration"
+                    value={form.blockDuration}
+                    onChange={handleInputChange}
+                    required
+                />
+                <button type="submit">Agregar Proceso</button>
+            </form>
+            <h2>Tabla de Procesos</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Proceso</th>
+                        <th>Instante de Llegada</th>
+                        <th>Ejecución</th>
+                        <th>Bloqueo (Inicio)</th>
+                        <th>Bloqueo (Duración)</th>
+                        <th>Instante Fin</th>
+                        <th>Retorno</th>
+                        <th>Tiempo Perdido</th>
+                        <th>Penalidad</th>
+                        <th>Tiempo de Respuesta</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {metrics.map((process, index) => (
+                        <tr key={index}>
+                            <td>{process.name}</td>
+                            <td>{process.arrival}</td>
+                            <td>{process.execution}</td>
+                            <td>{process.blockStart}</td>
+                            <td>{process.blockDuration}</td>
+                            <td>{process.endTime}</td>
+                            <td>{process.turnaroundTime}</td>
+                            <td>{process.lostTime}</td>
+                            <td>{process.penalty}</td>
+                            <td>{process.responseTime}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            <h2>Gráfica de Barras</h2>
+            <div>
+                {metrics.map((process, index) => (
+                    <div key={index} className="chart">
+                        <strong>{process.name}</strong>
+                        <div className="bar">{renderChart(process)}</div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
 };
 
 export default FCFS;
