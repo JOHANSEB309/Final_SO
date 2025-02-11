@@ -72,6 +72,7 @@
         margin: 5px 0;
         display: flex;
         align-items: center;
+        position: relative;
       }
 
       .process-segment {
@@ -81,22 +82,19 @@
         justify-content: center;
         color: white;
         margin-right: 1px;
+        position: absolute;
       }
 
-      .process-segment.idle {
-        background-color: gray; /* CPU libre */
+      .process-running {
+        background-color: #1a73e8;
       }
 
-      .process-segment.waiting {
-        background-color: gray; /* En espera */
+      .process-waiting {
+        background-color: #fbbc04;
       }
 
-      .process-segment.running {
-        background-color: green; /* En ejecución */
-      }
-
-      .process-segment.blocked {
-        background-color: red; /* En ejecución */
+      .process-blocked {
+        background-color: #ea4335;
       }
 
       .timeline {
@@ -179,6 +177,27 @@
         font-weight: bold;
         margin-bottom: 5px;
       }
+
+      .legend {
+        display: flex;
+        gap: 20px;
+        margin: 10px 0;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .legend-color {
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+      }
     </style>
   </head>
   <body>
@@ -198,26 +217,15 @@
             id="arrivalTime"
             placeholder="Tiempo de llegada"
           />
-          <input
-            type="number"
-            id="burstTime"
-            placeholder="Tiempo de Ejecución"
-          />
-          <input
-            type="number"
-            id="arrivalBlock"
-            placeholder="Inicio de Bloqueo"
-          />
-          <input type="number" id="blockTime" placeholder="Tiempo de Bloqueo" />
-
+          <input type="number" id="burstTime" placeholder="Tiempo de ráfaga" />
           <button onclick="addProcess()">Agregar Proceso</button>
         </div>
+        <button onclick="calculateFCFS()">Calcular FCFS</button>
       </div>
 
       <div class="process-list" id="processList">
         <h2>Procesos Ingresados</h2>
       </div>
-      <button onclick="calculateFCFS()">Calcular FCFS</button>
 
       <div class="results" id="results">
         <h2>Resultados Detallados</h2>
@@ -227,9 +235,7 @@
             <tr>
               <th>Proceso</th>
               <th>Llegada</th>
-              <th>Ejecución</th>
-              <th>Bloqueo Inicio</th>
-              <th>Bloqueo Duración</th>
+              <th>Ráfaga</th>
               <th>Comienzo</th>
               <th>Final</th>
               <th>Retorno</th>
@@ -245,6 +251,20 @@
 
       <div class="gantt-chart" id="ganttChart">
         <h2>Diagrama de Gantt</h2>
+        <div class="legend">
+          <div class="legend-item">
+            <div class="legend-color process-running"></div>
+            <span>En ejecución</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color process-waiting"></div>
+            <span>En espera</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color process-blocked"></div>
+            <span>Bloqueado</span>
+          </div>
+        </div>
         <div id="ganttBars"></div>
         <div id="timeline" class="timeline"></div>
       </div>
@@ -259,18 +279,8 @@
           document.getElementById("arrivalTime").value
         );
         const burstTime = parseInt(document.getElementById("burstTime").value);
-        const arrivalBlock = parseInt(
-          document.getElementById("arrivalBlock").value
-        );
-        const blockTime = parseInt(document.getElementById("blockTime").value);
 
-        if (
-          !name ||
-          isNaN(arrivalTime) ||
-          isNaN(burstTime) ||
-          isNaN(arrivalBlock) ||
-          isNaN(blockTime)
-        ) {
+        if (!name || isNaN(arrivalTime) || isNaN(burstTime)) {
           alert("Por favor, complete todos los campos correctamente");
           return;
         }
@@ -279,8 +289,6 @@
           name,
           arrivalTime,
           burstTime,
-          arrivalBlock,
-          blockTime,
           completed: false,
         });
 
@@ -292,8 +300,6 @@
         document.getElementById("processName").value = "";
         document.getElementById("arrivalTime").value = "";
         document.getElementById("burstTime").value = "";
-        document.getElementById("arrivalBlock").value = "";
-        document.getElementById("blockTime").value = "";
       }
 
       function updateProcessList() {
@@ -304,13 +310,11 @@
           const processItem = document.createElement("div");
           processItem.className = "process-item";
           processItem.innerHTML = `
-                          <span>Proceso: ${process.name}</span>
-                          <span>Llegada: ${process.arrivalTime}</span>
-                          <span>Ráfaga: ${process.burstTime}</span>
-                          <span>Inicio Bloqueo: ${process.arrivalBlock}</span>
-                          <span>Duración Bloqueo: ${process.blockTime}</span>
-                          <button onclick="removeProcess(${index})">Eliminar</button>
-                      `;
+                    <span>Proceso: ${process.name}</span>
+                    <span>Llegada: ${process.arrivalTime}</span>
+                    <span>Ráfaga: ${process.burstTime}</span>
+                    <button onclick="removeProcess(${index})">Eliminar</button>
+                `;
           processList.appendChild(processItem);
         });
       }
@@ -326,122 +330,36 @@
           return;
         }
 
-        let processQueue = JSON.parse(JSON.stringify(processes)); // Copia profunda
-        let time = 0;
-        let ready = [];
-        let blocked = [];
-        let completed = [];
-        let runningProcess = null;
-
-        while (
-          ready.length > 0 ||
-          blocked.length > 0 ||
-          runningProcess ||
-          processQueue.length > 0
-        ) {
-          console.log(`Time: ${time}`);
-
-          ready.push(processQueue[0]);
-          // 1. Agregar procesos que han llegado a la cola de listos
-          for (let i = 0; i < processQueue.length; i++) {
-            if (processQueue[i].arrivalTime === time) {
-              ready.push(processQueue[i]);
-              console.log(
-                `Process ${processQueue[i].name} arrived and added to ready queue.`
-              );
-              processQueue.splice(i, 1);
-              i--; // Ajustar el índice tras eliminar
-            }
-          }
-
-          // 2. Revisar si algún proceso se desbloquea
-          for (let i = 0; i < blocked.length; i++) {
-            if (blocked[i].unblockTime === time) {
-              ready.push(blocked[i]);
-              console.log(
-                `Process ${blocked[i].name} unblocked and moved to ready queue.`
-              );
-              blocked.splice(i, 1);
-              i--;
-            }
-          }
-
-          // 3. Si no hay un proceso ejecutando, tomar el primero de la cola de listos
-          if (!runningProcess && ready.length > 0) {
-            runningProcess = ready.shift();
-            runningProcess.state = "running";
-            console.log(`Process ${runningProcess.id} started execution.`);
-          }
-
-          // 4. Ejecutar el proceso en CPU
-          if (runningProcess) {
-            runningProcess.remainingTime--;
-
-            // Si el proceso se bloquea
-            if (
-              runningProcess.blockTime === time &&
-              runningProcess.remainingTime > 0
-            ) {
-              console.log(`Process ${runningProcess.id} blocked.`);
-              runningProcess.unblockTime = time + 2; // Se desbloqueará después de 2 unidades de tiempo
-              blocked.push(runningProcess);
-              runningProcess = null;
-            }
-            // Si el proceso finaliza
-            else if (runningProcess.remainingTime === 0) {
-              console.log(`Process ${runningProcess.id} finished.`);
-              completed.push(runningProcess);
-              runningProcess = null;
-            }
-          }
-
-          // 5. Si no hay procesos listos o en ejecución, avanzar al siguiente evento importante
-          if (!runningProcess && ready.length === 0 && blocked.length > 0) {
-            time = Math.min(...blocked.map((p) => p.unblockTime));
-          } else {
-            time++;
-          }
-        }
-
-        console.log("All processes have completed execution.");
-      }
-
-      /*function calculateFCFS() {
-        if (processes.length === 0) {
-          alert("Agregue al menos un proceso");
-          return;
-        }
-
         let processQueue = JSON.parse(JSON.stringify(processes));
         let currentTime = 0;
-        let ready = [processQueue];
-        let aux = [];
-        let blocked = [];
         let completed = [];
         let timeline = [];
-        let i = 0;
 
-        // Ordenar procesos por tiempo de llegada (FCFS)
+        // Ordenar por tiempo de llegada (FCFS)
         processQueue.sort((a, b) => a.arrivalTime - b.arrivalTime);
 
-        do {
-          
-          let selectedProcess = processQueue[i];
+        while (processQueue.length > 0) {
+          let selectedProcess = processQueue.shift();
 
-          console.log(selectedProcess.name);
+          // Si el proceso llega después del tiempo actual, avanzar el tiempo
+          if (selectedProcess.arrivalTime > currentTime) {
+            timeline.push({
+              name: "IDLE",
+              start: currentTime,
+              duration: selectedProcess.arrivalTime - currentTime,
+              state: "idle",
+            });
+            currentTime = selectedProcess.arrivalTime;
+          }
 
-          // Si hay tiempo ocioso antes de ejecutar el proceso
-          /*if (selectedProcess.arrivalTime > currentTime) {
-        timeline.push({
-          name: "Libre", // Tiempo donde la CPU está libre
-          start: currentTime,
-          duration: selectedProcess.arrivalTime - currentTime,
-          state: "idle",
-        });
-        currentTime = selectedProcess.arrivalTime;
-      }
+          // Proceso en ejecución
+          timeline.push({
+            name: selectedProcess.name,
+            start: currentTime,
+            duration: selectedProcess.burstTime,
+            state: "running",
+          });
 
-          // Calcular métricas
           selectedProcess.startTime = currentTime;
           selectedProcess.completionTime =
             currentTime + selectedProcess.burstTime;
@@ -449,15 +367,15 @@
             selectedProcess.completionTime - selectedProcess.arrivalTime;
           selectedProcess.waitingTime =
             selectedProcess.turnaroundTime - selectedProcess.burstTime;
-          selectedProcess.lostTime =
+          selectedProcess.responseTime =
             selectedProcess.startTime - selectedProcess.arrivalTime;
           selectedProcess.penalty =
             selectedProcess.turnaroundTime / selectedProcess.burstTime;
-          selectedProcess.responseTime =
+          selectedProcess.lostTime =
             selectedProcess.startTime - selectedProcess.arrivalTime;
 
           // Si el proceso tuvo que esperar (excluyendo el primer proceso en ejecutarse)
-          if (selectedProcess.waitingTime > 0 && i !== 0) {
+          if (selectedProcess.waitingTime) {
             timeline.push({
               name: selectedProcess.name + " (En Espera)",
               start: selectedProcess.arrivalTime,
@@ -466,63 +384,18 @@
             });
           }
 
-          if (blocked.includes(selectedProcess)) {
-            console.log("si");
-            timeline.push({
-              name: selectedProcess.name,
-              start: currentTime,
-              duration: selectedProcess.burstTime,
-              state: "running",
-            });
-            blocked.splice(selectedProcess);
-          }
+          currentTime = selectedProcess.completionTime;
+          completed.push(selectedProcess);
+        }
 
-          if (selectedProcess.arrivalBlock != 0) {
-            timeline.push({
-              name: selectedProcess.name,
-              start: currentTime,
-              duration:
-                selectedProcess.burstTime - selectedProcess.arrivalBlock,
-              state: "running",
-            });
-
-            timeline.push({
-              name: selectedProcess.name,
-              start: selectedProcess.burstTime - selectedProcess.arrivalBlock,
-              duration: selectedProcess.blockTime,
-              state: "blocked",
-            });
-
-            selectedProcess.burstTime =
-              selectedProcess.burstTime - selectedProcess.arrivalBlock;
-            blocked.push(selectedProcess);
-          } else {
-            console.log('arrivalblock = 0');
-            timeline.push({
-              name: selectedProcess.name,
-              start: currentTime,
-              duration: selectedProcess.burstTime,
-              state: "running",
-            });
-            currentTime = selectedProcess.completionTime;
-            completed.push(selectedProcess);
-          }
-
-          
-          blocked.shift();
-
-          i++;
-
-          displayResults(completed);
-          drawGanttChart(timeline);
-        } while (ready.length !== 0 && blocked.length!==0);
-      }*/
+        displayResults(completed);
+        drawGanttChart(timeline);
+      }
 
       function displayResults(completed) {
         const tbody = document.getElementById("resultsTableBody");
         tbody.innerHTML = "";
 
-        // Calcular promedios
         let totalTurnaround = 0;
         let totalWaiting = 0;
         let totalLostTime = 0;
@@ -532,19 +405,17 @@
         completed.forEach((process) => {
           const row = document.createElement("tr");
           row.innerHTML = `
-                          <td>${process.name}</td>
-                          <td>${process.arrivalTime}</td>
-                          <td>${process.burstTime}</td>
-                          <td>${process.arrivalBlock}</td>
-                          <td>${process.blockTime}</td>
-                          <td>${process.startTime}</td>
-                          <td>${process.completionTime}</td>
-                          <td>${process.turnaroundTime}</td>
-                          <td>${process.waitingTime}</td>
-                          <td>${process.lostTime}</td>
-                          <td>${process.penalty.toFixed(2)}</td>
-                          <td>${process.responseTime}</td>
-                      `;
+                    <td>${process.name}</td>
+                    <td>${process.arrivalTime}</td>
+                    <td>${process.burstTime}</td>
+                    <td>${process.startTime}</td>
+                    <td>${process.completionTime}</td>
+                    <td>${process.turnaroundTime}</td>
+                    <td>${process.waitingTime}</td>
+                    <td>${process.lostTime}</td>
+                    <td>${process.penalty.toFixed(2)}</td>
+                    <td>${process.responseTime}</td>
+                `;
           tbody.appendChild(row);
 
           totalTurnaround += process.turnaroundTime;
@@ -554,40 +425,31 @@
           totalResponse += process.responseTime;
         });
 
-        // Mostrar métricas promedio
         const metrics = document.getElementById("metrics");
         metrics.innerHTML = `
-                      <div class="metric-card">
-                          <div class="metric-title">Tiempo de Retorno Promedio</div>
-                          <div>${(totalTurnaround / completed.length).toFixed(
-                            2
-                          )}</div>
-                      </div>
-                      <div class="metric-card">
-                          <div class="metric-title">Tiempo de Espera Promedio</div>
-                          <div>${(totalWaiting / completed.length).toFixed(
-                            2
-                          )}</div>
-                      </div>
-                      <div class="metric-card">
-                          <div class="metric-title">Tiempo Perdido Promedio</div>
-                          <div>${(totalLostTime / completed.length).toFixed(
-                            2
-                          )}</div>
-                      </div>
-                      <div class="metric-card">
-                          <div class="metric-title">Penalidad Promedio</div>
-                          <div>${(totalPenalty / completed.length).toFixed(
-                            2
-                          )}</div>
-                      </div>
-                      <div class="metric-card">
-                          <div class="metric-title">Tiempo de Respuesta Promedio</div>
-                          <div>${(totalResponse / completed.length).toFixed(
-                            2
-                          )}</div>
-                      </div>
-                  `;
+                <div class="metric-card">
+                    <div class="metric-title">Tiempo de Retorno Promedio</div>
+                    <div>${(totalTurnaround / completed.length).toFixed(
+                      2
+                    )}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">Tiempo de Espera Promedio</div>
+                    <div>${(totalWaiting / completed.length).toFixed(2)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">Tiempo Perdido Promedio</div>
+                    <div>${(totalLostTime / completed.length).toFixed(2)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">Penalidad Promedio</div>
+                    <div>${(totalPenalty / completed.length).toFixed(2)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">Tiempo de Respuesta Promedio</div>
+                    <div>${(totalResponse / completed.length).toFixed(2)}</div>
+                </div>
+            `;
       }
 
       function drawGanttChart(timeline) {
@@ -596,22 +458,31 @@
         ganttBars.innerHTML = "";
         timelineDiv.innerHTML = "";
 
-        const totalTime =
-          timeline[timeline.length - 1].start +
-          timeline[timeline.length - 1].duration;
+        const totalTime = timeline.reduce(
+          (max, item) => Math.max(max, item.start + item.duration),
+          0
+        );
         const timeScale = 100 / totalTime;
 
-        timeline.forEach((item) => {
+        // Agrupar por proceso
+        const processes = [...new Set(timeline.map((item) => item.name))];
+
+        processes.forEach((processName) => {
+          const processTimeline = timeline.filter(
+            (item) => item.name === processName
+          );
           const bar = document.createElement("div");
           bar.className = "process-bar";
 
-          const segment = document.createElement("div");
-          segment.className = `process-segment ${item.state}`;
-          segment.style.width = `${item.duration * timeScale}%`;
-          segment.style.marginLeft = `${item.start * timeScale}%`;
-          segment.textContent = item.name;
+          processTimeline.forEach((item) => {
+            const segment = document.createElement("div");
+            segment.className = `process-segment process-${item.state}`;
+            segment.style.width = `${item.duration * timeScale}%`;
+            segment.style.left = `${item.start * timeScale}%`;
+            segment.textContent = item.name;
+            bar.appendChild(segment);
+          });
 
-          bar.appendChild(segment);
           ganttBars.appendChild(bar);
         });
 
