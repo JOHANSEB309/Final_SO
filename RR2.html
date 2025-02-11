@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Planificador Round Robin</title>
+    <style>
+                body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1, h2 {
+            color: #1a73e8;
+        }
+
+        .input-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 120px;
+        }
+
+        button {
+            padding: 8px 16px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #1557b0;
+        }
+
+        .gantt-chart {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: white;
+        }
+
+        .process-bar {
+            height: 40px;
+            margin: 5px 0;
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+
+        .process-segment {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            margin-right: 1px;
+            position: absolute;
+        }
+
+        .process-running {
+            background-color: #1a73e8;
+        }
+
+        .process-waiting {
+            background-color: #fbbc04;
+        }
+
+        .process-blocked {
+            background-color: #ea4335;
+        }
+
+        .timeline {
+            display: flex;
+            margin-top: 10px;
+            border-top: 1px solid #ddd;
+            padding-top: 5px;
+        }
+
+        .time-marker {
+            flex: 1;
+            text-align: left;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            color: #1a73e8;
+        }
+
+        .process-list {
+            margin-top: 20px;
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .process-item {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 5px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            align-items: center;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .metric-card {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .metric-title {
+            color: #1a73e8;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        
+   
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Planificador Round Robin</h1>
+        
+        <div class="input-section">
+            <h2>Agregar Proceso</h2>
+            <input type="text" id="processName" placeholder="Nombre">
+            <input type="number" id="arrivalTime" placeholder="Llegada">
+            <input type="number" id="burstTime" placeholder="Ráfaga">
+            <button onclick="addProcess()">Agregar</button>
+            <input type="number" id="quantum" placeholder="Quantum" style="margin-left:10px;">
+            <button onclick="calculateRR()">Calcular RR</button>
+        </div>
+
+        <div class="process-list" id="processList">
+            <h2>Procesos Ingresados</h2>
+        </div>
+
+        <div class="results" id="results">
+            <h2>Resultados Detallados</h2>
+            <div class="metrics" id="metrics"></div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Proceso</th>
+                        <th>Llegada</th>
+                        <th>Ráfaga</th>
+                        <th>Comienzo</th>
+                        <th>Final</th>
+                        <th>Retorno</th>
+                        <th>Espera</th>
+                        <th>T. Perdido</th>
+                        <th>Penalidad</th>
+                        <th>Respuesta</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsTableBody"></tbody>
+            </table>
+        </div>
+
+        <div class="gantt-chart" id="ganttChart">
+            <h2>Diagrama de Gantt</h2>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color process-running"></div>
+                    <span>En ejecución</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color process-waiting"></div>
+                    <span>En espera</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color process-blocked"></div>
+                    <span>Bloqueado</span>
+                </div>
+            </div>
+            <div id="ganttBars"></div>
+            <div id="timeline" class="timeline"></div>
+        </div>
+    </div>
+
+    <script>
+    let processes = [];
+
+    function addProcess() {
+        const name = document.getElementById('processName').value;
+        const arrivalTime = parseInt(document.getElementById('arrivalTime').value);
+        const burstTime = parseInt(document.getElementById('burstTime').value);
+
+        if (!name || isNaN(arrivalTime) || isNaN(burstTime)) {
+            alert('Por favor, complete todos los campos correctamente');
+            return;
+        }
+
+        processes.push({
+            name,
+            arrivalTime,
+            burstTime,
+            remainingTime: burstTime,
+            isCompleted: false
+        });
+
+        updateProcessList();
+        clearInputs();
+    }
+
+    function setQuantum() {
+        quantum = parseInt(document.getElementById('quantum').value);
+        if (isNaN(quantum) || quantum <= 0) {
+            alert('Por favor, ingrese un quantum válido');
+            quantum = 0;
+        }
+    }
+
+    function clearInputs() {
+        document.getElementById('processName').value = '';
+        document.getElementById('arrivalTime').value = '';
+        document.getElementById('burstTime').value = '';
+    }
+
+    function updateProcessList() {
+        const processList = document.getElementById('processList');
+        processList.innerHTML = '<h2>Procesos Ingresados</h2>';
+
+        processes.forEach((process, index) => {
+            const processItem = document.createElement('div');
+            processItem.className = 'process-item';
+            processItem.innerHTML = `
+                    <span>Proceso: ${process.name}</span>
+                    <span>Llegada: ${process.arrivalTime}</span>
+                    <span>Ráfaga: ${process.burstTime}</span>
+                    <button onclick="removeProcess(${index})">Eliminar</button>
+                `;
+            processList.appendChild(processItem);
+        });
+    }
+
+    function removeProcess(index) {
+        processes.splice(index, 1);
+        updateProcessList();
+    }
+
+    function calculateRR() {
+
+        setQuantum();
+
+        if (processes.length === 0) {
+            alert('Agregue al menos un proceso');
+            return;
+        }
+
+        if (quantum <= 0) {
+            alert('Por favor, configure un quantum válido');
+            return;
+        }
+
+
+
+        let processQueue = JSON.parse(JSON.stringify(processes));
+        let currentTime = 0;
+        let completed = [];
+        let timeline = [];
+        let readyQueue = [];
+
+
+
+        processQueue.sort((a, b) => a.arrivalTime - b.arrivalTime);
+
+        while (processQueue.length > 0 || readyQueue.length > 0) {
+            // Mover procesos que han llegado a la cola de listos
+            while (processQueue.length > 0 && processQueue[0].arrivalTime <= currentTime) {
+                readyQueue.push(processQueue.shift());
+            }
+
+            if (readyQueue.length === 0) {
+                // Si no hay procesos listos, avanzar el tiempo
+                if (processQueue.length > 0) {
+                    currentTime = processQueue[0].arrivalTime;
+                }
+                continue;
+            }
+
+            // Tomar el primer proceso de la cola
+            let seletedProcess = readyQueue.shift();
+
+            // Verificar si es la primera vez que el proceso se ejecuta
+            if (seletedProcess.startTime === undefined) {
+                seletedProcess.startTime = currentTime;
+            }
+
+            // Ejecutar el proceso por el quantum o el tiempo restante, lo que sea menor
+            let executionTime = Math.min(seletedProcess.remainingTime, quantum);
+            timeline.push({
+                name: seletedProcess.name,
+                start: currentTime,
+                duration: executionTime,
+                state: 'running'
+            });
+
+            
+
+            seletedProcess.remainingTime -= executionTime;
+            currentTime += executionTime;
+
+            // Si el proceso no ha terminado, volver a agregarlo a la cola
+            if (seletedProcess.remainingTime > 0) {
+                readyQueue.push(seletedProcess);
+            } else {
+                // Calcular métricas del proceso completado
+                seletedProcess.completionTime = currentTime;
+                seletedProcess.turnaroundTime = seletedProcess.completionTime - seletedProcess.arrivalTime;
+                seletedProcess.waitingTime = seletedProcess.turnaroundTime - seletedProcess.burstTime;
+                seletedProcess.lostTime = seletedProcess.startTime - seletedProcess.arrivalTime;
+                seletedProcess.penalty = seletedProcess.turnaroundTime / seletedProcess.burstTime;
+                seletedProcess.responseTime = seletedProcess.startTime
+                    ? seletedProcess.startTime - seletedProcess.arrivalTime
+                    : 0;
+
+                completed.push(seletedProcess);
+            }
+        }
+
+        displayResults(completed);
+        drawGanttChart(timeline);
+
+    
+    }
+
+    function displayResults(completed) {
+        const tbody = document.getElementById('resultsTableBody');
+        tbody.innerHTML = '';
+
+        let totalTurnaround = 0;
+        let totalWaiting = 0;
+        let totalLostTime = 0;
+        let totalPenalty = 0;
+        let totalResponse = 0;
+
+        completed.forEach(process => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                    <td>${process.name}</td>
+                    <td>${process.arrivalTime}</td>
+                    <td>${process.burstTime}</td>
+                    <td>${process.startTime}</td>
+                    <td>${process.completionTime}</td>
+                    <td>${process.turnaroundTime}</td>
+                    <td>${process.waitingTime}</td>
+                    <td>${process.lostTime}</td>
+                    <td>${process.penalty.toFixed(2)}</td>
+                    <td>${process.responseTime}</td>
+                `;
+            tbody.appendChild(row);
+
+            totalTurnaround += process.turnaroundTime;
+            totalWaiting += process.waitingTime;
+            totalLostTime += process.lostTime;
+            totalPenalty += process.penalty;
+            totalResponse += process.responseTime;
+        });
+
+        const metrics = document.getElementById('metrics');
+        metrics.innerHTML = `
+                <div class="metric-card">
+                    <div class="metric-title">Tiempo de Retorno Promedio</div>
+                    <div>${(totalTurnaround / completed.length).toFixed(2)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">Tiempo de Espera Promedio</div>
+                    <div>${(totalWaiting / completed.length).toFixed(2)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">Tiempo Perdido Promedio</div>
+                    <div>${(totalLostTime / completed.length).toFixed(2)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">Penalidad Promedio</div>
+                    <div>${(totalPenalty / completed.length).toFixed(2)}</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">Tiempo de Respuesta Promedio</div>
+                    <div>${(totalResponse / completed.length).toFixed(2)}</div>
+                </div>
+            `;
+    }
+
+    function drawGanttChart(timeline) {
+        const ganttBars = document.getElementById('ganttBars');
+        const timelineDiv = document.getElementById('timeline');
+        ganttBars.innerHTML = '';
+        timelineDiv.innerHTML = '';
+
+        const totalTime = timeline.reduce((max, item) =>
+            Math.max(max, item.start + item.duration), 0);
+        const timeScale = 100 / totalTime;
+
+        timeline.forEach(item => {
+            const segment = document.createElement('div');
+            segment.className = `process-segment process-${item.state}`;
+            segment.style.width = `${item.duration * timeScale}%`;
+            segment.style.left = `${item.start * timeScale}%`;
+            segment.textContent = item.name;
+            ganttBars.appendChild(segment);
+        });
+
+        for (let i = 0; i <= totalTime; i++) {
+            const marker = document.createElement('div');
+            marker.className = 'time-marker';
+            marker.style.flex = `0 0 ${timeScale}%`;
+            marker.textContent = i;
+            timelineDiv.appendChild(marker);
+        }
+    }
+</script>
+</body>
+</html>
