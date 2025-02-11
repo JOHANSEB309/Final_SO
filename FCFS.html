@@ -374,7 +374,7 @@
           selectedProcess.lostTime =
             selectedProcess.startTime - selectedProcess.arrivalTime;
 
-          // Si el proceso tuvo que esperar (excluyendo el primer proceso en ejecutarse)
+          // Si el proceso tuvo que esperar
           if (selectedProcess.waitingTime) {
             timeline.push({
               name: selectedProcess.name + " (En Espera)",
